@@ -25,14 +25,15 @@ func reverseArray(a []string) []string {
   return a
 }
 
-func fqdnToEtcdKey(fqdn string) string {
+func fqdnToEtcdKey(etcdBaseKey, fqdn string) string {
+  baseKey := strings.TrimRight(etcdBaseKey, "/")
   etcdKeys := reverseArray(strings.Split(fqdn, "."))
-  return "/skydns/" + strings.Join(etcdKeys, "/")
+  return baseKey + "/" + strings.Join(etcdKeys, "/")
 }
 
-func register(etcdClient client.KeysAPI, data string) {
+func register(etcdClient client.KeysAPI, etcdBaseKey, data string) {
   fqdn, ip := parseData(data, "|")
-  etcdKey := fqdnToEtcdKey(fqdn)
+  etcdKey := fqdnToEtcdKey(etcdBaseKey, fqdn)
   _, err := etcdClient.Set(context.Background(), etcdKey, fmt.Sprintf(`{"host": "%s"}`, ip), nil)
   if err != nil {
 		log.Fatal(err)
@@ -57,6 +58,7 @@ func createEtcdClient(etcdBaseUrl string) client.KeysAPI {
 func main() {
   pipeName := os.Getenv("PIPE_PATH")
   etcdClient := createEtcdClient(os.Getenv("ETCD_URL"))
+  etcdBaseKey := os.Getenv("ETCD_BASE_KEY")
 
   syscall.Mkfifo(pipeName, 0666)
   for {
@@ -68,6 +70,6 @@ func main() {
     var buff bytes.Buffer
     io.Copy(&buff, pipe)
     pipe.Close()
-    go register(etcdClient, buff.String())
+    go register(etcdClient, etcdBaseKey, buff.String())
   }
 }
