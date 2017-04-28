@@ -9,6 +9,7 @@ import (
   "syscall"
   "io"
   "bytes"
+  "path/filepath"
   "golang.org/x/net/context"
   "github.com/coreos/etcd/client"
   )
@@ -26,9 +27,9 @@ func reverseArray(a []string) []string {
 }
 
 func fqdnToEtcdKey(etcdBaseKey, fqdn string) string {
-  baseKey := strings.TrimRight(etcdBaseKey, "/")
   etcdKeys := reverseArray(strings.Split(fqdn, "."))
-  return baseKey + "/" + strings.Join(etcdKeys, "/")
+  etcdKeys = append([]string{etcdBaseKey}, etcdKeys...)
+  return filepath.Join(etcdKeys...)
 }
 
 func register(etcdClient client.KeysAPI, etcdBaseKey, data string) {
@@ -60,7 +61,9 @@ func main() {
   etcdClient := createEtcdClient(os.Getenv("ETCD_URL"))
   etcdBaseKey := os.Getenv("ETCD_BASE_KEY")
 
-  syscall.Mkfifo(pipeName, 0666)
+  os.MkdirAll(filepath.Dir(pipeName), 0777)
+  syscall.Mkfifo(pipeName, 0777)
+
   for {
     pipe, err := os.OpenFile(pipeName, os.O_RDONLY, os.ModeNamedPipe)
     if err != nil {
