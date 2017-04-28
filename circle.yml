@@ -1,17 +1,10 @@
 machine:
   services:
     - docker
-  environment:
-    CGO_ENABLED: 0
-    GOOS: linux
-    GOARCH: amd64
 
 dependencies:
   override:
-    - mkdir -p ~/.go_project/src/github.com/${CIRCLE_PROJECT_USERNAME}
-  	- ln -s ${HOME}/${CIRCLE_PROJECT_REPONAME} ${HOME}/.go_project/src/github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}
-    - go get -d -v
-    - go build -a --installsuffix cgo -v -o dnsreg
+    - docker run --rm -v $(pwd):/usr/src/myapp -w /usr/src/myapp -e CGO_ENABLED=0 -e GOOS=linux -e GOARCH=amd64 golang:1.8 bash -c "go get -d -v; go build -a --installsuffix cgo -v -o dnsreg"
 
 test:
   override:
@@ -21,7 +14,6 @@ deployment:
   production:
     tag: /^[0-9]+\.[0-9]+\.[0-9]+$/
     commands:
-      # - docker run --rm -v $(pwd):/usr/src/myapp -w /usr/src/myapp -e CGO_ENABLED=0 -e GOOS=linux -e GOARCH=amd64 golang:1.8 bash -c "go get -d -v; go build -a --installsuffix cgo -v -o dnsreg"
       - docker build --no-cache=true -t ictu/dnsreg .
       - docker tag ictu/dnsreg ictu/dnsreg:${CIRCLE_TAG}
       - MAJOR_VERSION=${CIRCLE_TAG/.*}; docker tag ictu/dnsreg:${CIRCLE_TAG} ictu/dnsreg:${MAJOR_VERSION}
@@ -34,7 +26,6 @@ deployment:
   master:
     branch: master
     commands:
-      # - docker run --rm -v $(pwd):/usr/src/myapp -w /usr/src/myapp -e CGO_ENABLED=0 -e GOOS=linux -e GOARCH=amd64 golang:1.8 bash -c "go get -d -v; go build -a --installsuffix cgo -v -o dnsreg"
       - docker build --no-cache=true -t ictu/dnsreg .
       - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
       - docker push ictu/dnsreg
