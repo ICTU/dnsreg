@@ -90,6 +90,11 @@ func createEtcdClient(etcdBaseUrl string) client.KeysAPI {
 
 func main() {
 	log.Println("Starting dnsreg server")
+	if _, err := os.Stat(socketPath); err == nil {
+		if err := os.Remove(socketPath); err != nil {
+			log.Fatalf("Failed to remove file: %s", err)
+		}
+	}
 	ln, err := net.Listen("unix", socketPath)
 	if err != nil {
 		log.Fatalf("Failed to listen on unix socket: %s", err)
