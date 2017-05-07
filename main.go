@@ -49,29 +49,28 @@ func register(etcdClient client.KeysAPI, etcdBaseKey, fqdn string, ip string) {
 	etcdKey := fqdnToEtcdKey(etcdBaseKey, fqdn)
 	_, err := etcdClient.Set(context.Background(), etcdKey, fmt.Sprintf(`{"host": "%s"}`, ip), nil)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Error setting etcd key: %s", err.Error())
 	} else {
 		log.Printf("Created DNS record for '%s', at key '%s', with ip '%s'", fqdn, etcdKey, ip)
 	}
 }
 
 func receiveData(c net.Conn) {
-	for {
-		buf := make([]byte, 512)
-		nr, err := c.Read(buf)
-		if err != nil {
-			return
-		}
+	buf := make([]byte, 512)
+	nr, err := c.Read(buf)
+	if err != nil {
+		log.Printf("Error reading data: %s", err.Error())
+		c.Close()
+	}
 
-		data := buf[0:nr]
-		log.Printf("Received: %s", string(data))
-		fqdn, ip := parseData(string(data), "|")
-		if govalidator.IsDNSName(fqdn) && govalidator.IsIP(ip) {
-			register(etcdClient, etcdBaseKey, fqdn, ip)
-		} else {
-			log.Println("Received data not valid.")
-		}
-
+	data := buf[0:nr]
+	log.Printf("Received: %s", string(data))
+	c.Close()
+	fqdn, ip := parseData(string(data), "|")
+	if govalidator.IsDNSName(fqdn) && govalidator.IsIP(ip) {
+		register(etcdClient, etcdBaseKey, fqdn, ip)
+	} else {
+		log.Println("Received data not valid.")
 	}
 }
 
@@ -92,12 +91,12 @@ func main() {
 	log.Println("Starting dnsreg server")
 	if _, err := os.Stat(socketPath); err == nil {
 		if err := os.Remove(socketPath); err != nil {
-			log.Fatalf("Failed to remove file: %s", err)
+			log.Fatalf("Failed to remove file: %s", err.Error())
 		}
 	}
 	ln, err := net.Listen("unix", socketPath)
 	if err != nil {
-		log.Fatalf("Failed to listen on unix socket: %s", err)
+		log.Fatalf("Failed to listen on unix socket: %s", err.Error())
 	}
 
 	// unlink the socket when shutting down
@@ -114,7 +113,7 @@ func main() {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Error accepting: %s", err.Error())
 		}
 		go receiveData(conn)
 	}
